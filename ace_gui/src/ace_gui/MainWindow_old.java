@@ -41,7 +41,6 @@ import javax.swing.border.TitledBorder;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableModel;
 import javax.mail.*;
 import javax.mail.internet.*;
 
@@ -54,25 +53,23 @@ import javax.swing.JTable;
 public class MainWindow extends JFrame {
 
 	private JFrame extractEml;
+	//private JTextField textField;
 	private JLabel convertingEmail_label;
 	private JProgressBar progressBar;
 	private JButton startExtractionBtn;
 	private JTextArea textArea;
 	private JTable tableView;
-
-	DefaultTableModel dmt;
+	
+	private List<String> fromEmailID = new ArrayList<String>();
+	private List<String> toEmailID = new ArrayList<String>();
+	private String subject;
+	
 	
 	/**
 	 * Function to initialize the Frame contents.
 	 */
 	
 	public void initialize() {
-		
-		String[] headers = new String[] {
-				"To", "From", "Subject"
-		};
-		dmt = new DefaultTableModel(headers, 0);
-		dmt.setColumnIdentifiers(headers);
 		
 		extractEml = new JFrame();
 		extractEml.setResizable(false);
@@ -253,35 +250,41 @@ public class MainWindow extends JFrame {
 		removeSelected.setBounds(527, 108, 140, 34);
 		extractEml.getContentPane().add(removeSelected);
 		
-		tableView = new JTable();
-		JScrollPane logPane = new JScrollPane(tableView);
+		JScrollPane logPane = new JScrollPane();
 		logPane.setBounds(3, 436, 671, 227);
-		logPane.setBorder(new TitledBorder(null, "Extracted Contents", TitledBorder.LEADING, TitledBorder.TOP, null, null));
+		logPane.setBorder(new TitledBorder(null, "Log", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		logPane.setBackground(Color.WHITE);
 		extractEml.getContentPane().add(logPane);
 		
-		logPane.setViewportView(tableView);
+		
+		
+		textArea = new JTextArea();
+		textArea.setFont(new Font("Lucida Console", Font.PLAIN, 12));
+		textArea.setForeground(Color.GREEN);
+		textArea.setBackground(Color.BLACK);
+		textArea.setEditable(false);
+		logPane.setViewportView(textArea);
 		
 		JButton saveBtn = new JButton("Save");
-		saveBtn.addActionListener(new ActionListener( ) {
-			@Override
+		saveBtn.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				String csvFilepath = "";				
-				JFileChooser jf = new JFileChooser();
-				int x = jf.showSaveDialog(null);
-				if(x == JFileChooser.APPROVE_OPTION) {
-					csvFilepath = jf.getSelectedFile().getAbsolutePath();
+				JFrame parentFrame = new JFrame();
+				
+				JFileChooser fileChooser = new JFileChooser();
+				fileChooser.setDialogTitle("Save to");
+				
+				int userSelection = fileChooser.showSaveDialog(parentFrame);
+				
+				if(userSelection == JFileChooser.APPROVE_OPTION) {
+					//File fileToSave = fileChooser.getSelectedFile();
+					File outputPath = fileChooser.getSelectedFile();
+					fileWriter(outputPath, textArea);
 				}
-				//System.out.println(csvFilepath);
-				exportToCSV(tableView, csvFilepath);
 			}
-			
 		});
-		
 		saveBtn.setBounds(527, 198, 140, 34);
 		extractEml.getContentPane().add(saveBtn);
 	}
-	
 	/**
 	 * Function to extract Email's Structured content using JavaMail.
 	 * 
@@ -290,6 +293,8 @@ public class MainWindow extends JFrame {
 	
 	private void startExtraction(List<String> l, boolean extractAttachments) throws Exception {
 		try {
+			textArea.setText("------------------------------------------------ \n");
+			textArea.append("------------------------------------------------- \n");
 			ArrayList<String> params = new ArrayList<String>();
 			int listSize = l.size();
 			
@@ -309,10 +314,6 @@ public class MainWindow extends JFrame {
 	
 	private void extract(String filePath, int listSize) throws Exception {
 		try {
-			List<String> fromEmailID = new ArrayList<String>();
-			List<String> toEmailID = new ArrayList<String>();
-			String subject;
-			
 			String new_filePath = filePath.replace("\\", "\\\\");
 			System.out.println(new_filePath);
 			File emlFile = new File(new_filePath);
@@ -323,13 +324,17 @@ public class MainWindow extends JFrame {
 			Session mailSession = Session.getDefaultInstance(props, null);
 			InputStream source = new FileInputStream(emlFile);
 			MimeMessage message = new MimeMessage(mailSession, source);
-	
+			
+			
+			textArea.append("-------------Email's Structured Content--------------\n");
+			textArea.append("-----------------------------------------------------\n");
 			Address[] address;
 			
 			// From
 			if((address = message.getFrom()) != null) {
 				for(int i = 0; i <address.length; i++) {
 					fromEmailID.add(address[i].toString());
+					//textArea.append("From: " + address[i].toString() + "\n");
 				}
 			}
 			
@@ -337,16 +342,27 @@ public class MainWindow extends JFrame {
 			if((address = message.getRecipients(Message.RecipientType.TO)) != null) {
 				for(int i = 0; i < address.length; i++) {
 					toEmailID.add(address[i].toString());
+					//textArea.append("To: " + address[i].toString() + "\n");
 				}
 			}
 			
 			//Subject
 			if(message.getSubject() != null) {
 				subject = message.getSubject();
+				//textArea.append("Subject: " + message.getSubject() + "\n");
 			} else {
 				subject ="";
 			}
-						
+			
+//			System.out.println(fromEmailID);
+//			System.out.println(toEmailID);
+//			System.out.println(subject);
+//			
+			
+			
+			
+			textArea.append("------------------------------------------------------\n");
+			
 			for(int i = 0; i < listSize; i++) {
 				final String progressBarText = "Email " + (i + 1) + " of " + listSize;
 				final int percent = (int) Math.ceil(((i + 1d) * 100d) / listSize);
@@ -361,7 +377,10 @@ public class MainWindow extends JFrame {
 					
 				});
 			}
-			viewTable(toEmailID, fromEmailID, subject);
+			System.out.println(toEmailID);
+			
+			//viewTable(toEmailID, fromEmailID, subject);
+			
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -370,38 +389,39 @@ public class MainWindow extends JFrame {
 		
 	}
 	
-	private void viewTable(List<String> toEmail, List<String> fromEmail, String subject) {
-		
-		Object[] data = new Object[] {
-				toEmail, fromEmail, subject
-		};
-		
-		dmt.addRow(data);
-		tableView.setModel(dmt);
-	}
-	
-	private void exportToCSV(JTable tableData, String csvFilepath) {
+	private void fileWriter(File outputPath, JTextArea textArea) {
 		try {
-			TableModel model = tableData.getModel();
-			FileWriter csv = new FileWriter(new File(csvFilepath));
-			
-			for(int i = 0; i < model.getColumnCount(); i++) {
-				csv.write(model.getColumnName(i) + ",");
-			}
-			
-			csv.write("\n");
-			
-			for(int i = 0; i < model.getRowCount(); i++) {
-				for(int j = 0; j < model.getColumnCount(); j++) {
-					csv.write(model.getValueAt(i, j).toString().replaceAll(",", " | ") + ",");
-				}
-				csv.write("\n");
-			
-			}
-			csv.close();
+			BufferedWriter bf = new BufferedWriter(new FileWriter(outputPath));
+			bf.write(textArea.getText());
+			bf.flush();
+			bf.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private void viewTable(List<String> toEmail, List<String> fromEmail, String subject) {
+		// System.out.println(toEmail + "\n" + fromEmail + "\n" + subject);
+		
+		tableView = new JTable();
+		this.add(new JScrollPane(tableView));
+		this.setTitle("Extracted contents");
+		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		this.pack();
+		this.setVisible(true);
+		
+		String[] headers = new String[] {
+				"To", "From", "Subject"
+		};
+		Object[] data = new Object[] {
+				toEmail, fromEmail, subject
+		};
+		DefaultTableModel dmt = new DefaultTableModel(headers, 0);
+		dmt.setColumnIdentifiers(headers);
+		dmt.addRow(data);
+		tableView.setModel(dmt);
+		
+		
 	}
 	
 	
