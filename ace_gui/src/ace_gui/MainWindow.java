@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.Frame;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedWriter;
@@ -69,13 +70,13 @@ public class MainWindow extends JFrame {
 	public void initialize() {
 		
 		String[] headers = new String[] {
-				"To", "From", "Subject"
+				"To", "From", "Subject", "Attachment's FileName"
 		};
 		dmt = new DefaultTableModel(headers, 0);
 		dmt.setColumnIdentifiers(headers);
 		
 		extractEml = new JFrame();
-		extractEml.setResizable(false);
+		extractEml.setResizable(true);
 		extractEml.setTitle("EML Extractor");
 		extractEml.getContentPane().setBackground(Color.WHITE);
 		extractEml.setBackground(Color.WHITE);
@@ -311,6 +312,7 @@ public class MainWindow extends JFrame {
 		try {
 			List<String> fromEmailID = new ArrayList<String>();
 			List<String> toEmailID = new ArrayList<String>();
+			List<String> attachedFiles = new ArrayList<String>();
 			String subject;
 			
 			String new_filePath = filePath.replace("\\", "\\\\");
@@ -323,6 +325,22 @@ public class MainWindow extends JFrame {
 			Session mailSession = Session.getDefaultInstance(props, null);
 			InputStream source = new FileInputStream(emlFile);
 			MimeMessage message = new MimeMessage(mailSession, source);
+			
+			String contentType = message.getContentType();
+			if(contentType.contains("multipart")) {
+				System.out.println("Attachment Found");
+				
+				Multipart multipart = (Multipart) message.getContent();
+				int numberOfParts = multipart.getCount();
+				
+				for(int i = 0; i < numberOfParts; i++) {
+					MimeBodyPart part = (MimeBodyPart) multipart.getBodyPart(i);
+					if(Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) {
+						String attachmentFileName = part.getFileName();
+						attachedFiles.add(attachmentFileName);
+					}
+				}
+			}
 	
 			Address[] address;
 			
@@ -361,7 +379,7 @@ public class MainWindow extends JFrame {
 					
 				});
 			}
-			viewTable(toEmailID, fromEmailID, subject);
+			viewTable(toEmailID, fromEmailID, subject, attachedFiles);
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -370,10 +388,10 @@ public class MainWindow extends JFrame {
 		
 	}
 	
-	private void viewTable(List<String> toEmail, List<String> fromEmail, String subject) {
+	private void viewTable(List<String> toEmail, List<String> fromEmail, String subject, List<String> attachedFiles) {
 		
 		Object[] data = new Object[] {
-				toEmail, fromEmail, subject
+				toEmail, fromEmail, subject, attachedFiles
 		};
 		
 		dmt.addRow(data);
